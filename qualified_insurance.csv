@@ -1,0 +1,6 @@
+company_name,website,vertical,_has_phone_field,_phone_field_details,_check_status,_error
+Bestow,bestow.com,insurance,True,"[{""type"": ""input[type=tel]"", ""name"": ""input16"", ""id"": ""input16"", ""placeholder"": ""+1 (757) 585-3977\u00e2\u0080\u00ac""}]",success,
+Jerry,getjerry.com,insurance,True,"[{""type"": ""input[name/id/placeholder match]"", ""name"": """", ""id"": ""search"", ""placeholder"": ""Tell us what you\u2019re looking for"", ""matched_on"": ""tel""}]",success,
+Spot Pet Insurance,spotpetins.com,insurance,True,"[{""type"": ""input[type=tel]"", ""name"": ""phone"", ""id"": ""mobile-number-(optional)"", ""placeholder"": "" ""}]",success,
+Kin Insurance,kin.com,insurance,True,"[{""type"": ""input[name/id/placeholder match]"", ""name"": """", ""id"": ""search-input--mobile"", ""placeholder"": """", ""matched_on"": ""mobile""}]",success,
+Clover Health,cloverhealth.com,insurance,True,"[{""type"": ""input[name/id/placeholder match]"", ""name"": ""phone"", ""id"": ""form_phone"", ""placeholder"": ""Phone"", ""matched_on"": ""phone""}]",success,

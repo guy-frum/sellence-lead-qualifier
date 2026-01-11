@@ -1,0 +1,21 @@
+company_name,website,vertical,_has_phone_field,_phone_field_details,_check_status,_error
+Lemonade,lemonade.com,insurance,False,,success,
+Hippo Insurance,hippo.com,insurance,False,,success,
+Root Insurance,root.com,insurance,False,,success,
+Ethos Life,ethos.com,insurance,False,,success,
+Bestow,bestow.com,insurance,True,"[{""type"": ""input[type=tel]"", ""name"": ""input16"", ""id"": ""input16"", ""placeholder"": ""+1 (757) 585-3977\u00e2\u0080\u00ac""}]",success,
+The Zebra,thezebra.com,insurance,False,,error,403 Client Error: Forbidden for url: https://www.thezebra.com/
+Insurify,insurify.com,insurance,False,,error,403 Client Error: Forbidden for url: https://insurify.com/
+Ladder,ladderlife.com,insurance,False,,success,
+Jerry,getjerry.com,insurance,True,"[{""type"": ""input[name/id/placeholder match]"", ""name"": """", ""id"": ""search"", ""placeholder"": ""Tell us what you\u2019re looking for"", ""matched_on"": ""tel""}]",success,
+Spot Pet Insurance,spotpetins.com,insurance,True,"[{""type"": ""input[type=tel]"", ""name"": ""phone"", ""id"": ""mobile-number-(optional)"", ""placeholder"": "" ""}]",success,
+Policygenius,policygenius.com,insurance,False,,success,
+Embrace Pet Insurance,embracepetinsurance.com,insurance,False,,success,
+Trupanion,trupanion.com,insurance,False,,error,403 Client Error: Forbidden for url: https://www.trupanion.com/
+Healthy Paws,healthypawspetinsurance.com,insurance,False,,success,
+Fetch Pet Insurance,fetchpet.com,insurance,False,,success,
+Bright Health,brighthealthcare.com,insurance,False,,success,
+Kin Insurance,kin.com,insurance,True,"[{""type"": ""input[name/id/placeholder match]"", ""name"": """", ""id"": ""search-input--mobile"", ""placeholder"": """", ""matched_on"": ""mobile""}]",success,
+Oscar Health,hioscar.com,insurance,False,,success,
+Branch Insurance,ourbranch.com,insurance,False,,success,
+Clover Health,cloverhealth.com,insurance,True,"[{""type"": ""input[name/id/placeholder match]"", ""name"": ""phone"", ""id"": ""form_phone"", ""placeholder"": ""Phone"", ""matched_on"": ""phone""}]",success,
