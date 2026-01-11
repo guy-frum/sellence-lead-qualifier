@@ -24,30 +24,40 @@ REQUEST_TIMEOUT = 15
 MAX_WORKERS = 10
 PHONE_KEYWORDS = ['phone', 'mobile', 'cell', 'tel', 'telephone', 'callback', 'call me', 'call-me', 'contact number']
 
-# Extended list of pages to check
+# Extended list of pages to check (with and without trailing slashes)
 PAGES_TO_CHECK = [
     '/',
     '/contact',
+    '/contact/',
     '/contact-us',
+    '/contact-us/',
     '/get-quote',
+    '/get-quote/',
     '/quote',
+    '/quote/',
     '/get-a-quote',
+    '/get-a-quote/',
     '/free-quote',
     '/get-started',
+    '/get-started/',
     '/start',
     '/signup',
     '/sign-up',
     '/register',
     '/demo',
+    '/demo/',
     '/request-demo',
     '/book-demo',
     '/schedule',
+    '/schedule/',
     '/talk-to-us',
     '/request-callback',
     '/apply',
+    '/apply/',
     '/enroll',
     '/get-pricing',
     '/pricing',
+    '/pricing/',
     '/plans',
 ]
 
@@ -145,6 +155,16 @@ def check_html_for_phone_fields(html_content):
     """Check HTML content for phone number input fields - ENHANCED VERSION."""
     soup = BeautifulSoup(html_content, 'html.parser')
     phone_fields = []
+
+    # 0. Quick regex check for type="tel" or type='tel' in raw HTML (most reliable)
+    if re.search(r'type=["\']tel["\']', html_content, re.IGNORECASE):
+        phone_fields.append({
+            'type': 'input[type=tel] (regex)',
+            'name': '',
+            'id': '',
+            'placeholder': '',
+            'detection': 'type=tel found in HTML'
+        })
 
     # 1. Check input type="tel" (most reliable)
     tel_inputs = soup.find_all('input', attrs={'type': 'tel'})
@@ -313,17 +333,37 @@ def check_html_for_phone_fields(html_content):
             'detection': 'JotForm detected (commonly includes phone)'
         })
 
-    # Gravity Forms (WordPress)
-    if 'gform' in html_content.lower() or 'gravity-form' in html_content.lower():
-        gf_phone = soup.find('input', {'type': 'tel'}) or soup.find(class_=re.compile(r'phone', re.I))
-        if gf_phone or 'gfield_contains_required' in html_content:
+    # Gravity Forms (WordPress) - enhanced detection
+    if 'gform' in html_content.lower() or 'gravity-form' in html_content.lower() or 'gravityforms' in html_content.lower():
+        # Check for gfield--type-phone class (Gravity Forms phone field)
+        if 'gfield--type-phone' in html_content:
             phone_fields.append({
-                'type': 'gravity form',
+                'type': 'gravity form phone field',
                 'name': '',
                 'id': '',
                 'placeholder': '',
-                'detection': 'Gravity Forms detected'
+                'detection': 'Gravity Forms phone field (gfield--type-phone)'
             })
+        # Check for ginput_container_phone
+        elif 'ginput_container_phone' in html_content:
+            phone_fields.append({
+                'type': 'gravity form phone field',
+                'name': '',
+                'id': '',
+                'placeholder': '',
+                'detection': 'Gravity Forms phone input (ginput_container_phone)'
+            })
+        # Generic Gravity Forms with phone input
+        gf_phone = soup.find('input', {'type': 'tel'}) or soup.find(class_=re.compile(r'phone', re.I))
+        if gf_phone or 'gfield_contains_required' in html_content:
+            if not any('gravity' in f.get('type', '').lower() for f in phone_fields):
+                phone_fields.append({
+                    'type': 'gravity form',
+                    'name': '',
+                    'id': '',
+                    'placeholder': '',
+                    'detection': 'Gravity Forms detected'
+                })
 
     # WPForms
     if 'wpforms' in html_content.lower():
