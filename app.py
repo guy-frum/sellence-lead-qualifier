@@ -2,7 +2,7 @@
 """
 Sellence Lead Qualifier - Web App
 Upload a CSV of companies and check which ones collect phone numbers.
-Uses Playwright for JavaScript rendering to catch dynamic forms.
+Enhanced detection patterns for better accuracy.
 """
 
 from flask import Flask, render_template, request, jsonify, send_file
@@ -10,28 +10,19 @@ import csv
 import io
 import os
 import re
-import requests
+import requests as req
 from bs4 import BeautifulSoup
 from urllib.parse import urlparse, urljoin
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import tempfile
 import json
 
-# Try to import playwright, fall back to requests-only mode
-try:
-    from playwright.sync_api import sync_playwright, TimeoutError as PlaywrightTimeout
-    PLAYWRIGHT_AVAILABLE = True
-except ImportError:
-    PLAYWRIGHT_AVAILABLE = False
-    print("Warning: Playwright not available, using requests-only mode")
-
 app = Flask(__name__)
 
 # Configuration
-TIMEOUT = 20000  # 20 seconds for playwright
 REQUEST_TIMEOUT = 15
-MAX_WORKERS = 5  # Fewer workers since browser is heavier
-PHONE_KEYWORDS = ['phone', 'mobile', 'cell', 'tel', 'telephone', 'contact', 'callback', 'call me', 'call-me']
+MAX_WORKERS = 10
+PHONE_KEYWORDS = ['phone', 'mobile', 'cell', 'tel', 'telephone', 'callback', 'call me', 'call-me', 'contact number']
 
 # Extended list of pages to check
 PAGES_TO_CHECK = [
@@ -51,27 +42,13 @@ PAGES_TO_CHECK = [
     '/request-demo',
     '/book-demo',
     '/schedule',
-    '/schedule-call',
     '/talk-to-us',
-    '/lets-talk',
     '/request-callback',
-    '/callback',
     '/apply',
     '/enroll',
     '/get-pricing',
     '/pricing',
-]
-
-# Buttons to click that might reveal forms
-BUTTON_PATTERNS = [
-    'get quote', 'get a quote', 'free quote', 'start quote',
-    'get started', 'start now', 'begin', 'apply now',
-    'contact us', 'contact sales', 'talk to us', 'speak to',
-    'request callback', 'call me', 'call back', 'schedule call',
-    'book demo', 'request demo', 'get demo', 'see demo',
-    'sign up', 'register', 'enroll', 'join',
-    'get pricing', 'see pricing', 'view pricing',
-    'learn more', 'find out more',
+    '/plans',
 ]
 
 # Sellence value propositions by industry
@@ -148,7 +125,6 @@ def normalize_url(url):
     if not url:
         return None
     url = url.strip()
-    # Remove protocol and www
     url = re.sub(r'^(https?://)?(www\.)?', '', url, flags=re.IGNORECASE)
     url = url.rstrip('/')
     if url:
@@ -166,11 +142,11 @@ def extract_meta_description(soup):
     return ''
 
 def check_html_for_phone_fields(html_content):
-    """Check HTML content for phone number input fields."""
+    """Check HTML content for phone number input fields - ENHANCED VERSION."""
     soup = BeautifulSoup(html_content, 'html.parser')
     phone_fields = []
 
-    # 1. Check input type="tel"
+    # 1. Check input type="tel" (most reliable)
     tel_inputs = soup.find_all('input', attrs={'type': 'tel'})
     for inp in tel_inputs:
         phone_fields.append({
@@ -185,7 +161,7 @@ def check_html_for_phone_fields(html_content):
     all_inputs = soup.find_all('input')
     for inp in all_inputs:
         input_type = (inp.get('type', '') or '').lower()
-        if input_type in ['hidden', 'submit', 'button', 'checkbox', 'radio', 'file']:
+        if input_type in ['hidden', 'submit', 'button', 'checkbox', 'radio', 'file', 'image']:
             continue
 
         name = (inp.get('name', '') or '').lower()
@@ -193,8 +169,9 @@ def check_html_for_phone_fields(html_content):
         placeholder = (inp.get('placeholder', '') or '').lower()
         aria_label = (inp.get('aria-label', '') or '').lower()
         class_attr = ' '.join(inp.get('class', [])).lower() if inp.get('class') else ''
+        data_attrs = ' '.join([str(v) for k, v in inp.attrs.items() if k.startswith('data-')]).lower()
 
-        combined = f"{name} {id_attr} {placeholder} {aria_label} {class_attr}"
+        combined = f"{name} {id_attr} {placeholder} {aria_label} {class_attr} {data_attrs}"
 
         for keyword in PHONE_KEYWORDS:
             if keyword in combined:
@@ -212,10 +189,9 @@ def check_html_for_phone_fields(html_content):
     # 3. Check for labels containing phone-related text
     labels = soup.find_all('label')
     for label in labels:
-        label_text = label.get_text().lower()
+        label_text = label.get_text().lower().strip()
         for keyword in PHONE_KEYWORDS:
             if keyword in label_text:
-                # Find associated input
                 for_attr = label.get('for', '')
                 if for_attr:
                     associated_input = soup.find('input', {'id': for_attr})
@@ -229,26 +205,86 @@ def check_html_for_phone_fields(html_content):
                         }
                         if field_info not in phone_fields:
                             phone_fields.append(field_info)
+                else:
+                    # Label might wrap the input
+                    nested_input = label.find('input')
+                    if nested_input:
+                        field_info = {
+                            'type': 'input[nested in label]',
+                            'name': nested_input.get('name', ''),
+                            'id': nested_input.get('id', ''),
+                            'placeholder': nested_input.get('placeholder', ''),
+                            'detection': f'nested label: {keyword}'
+                        }
+                        if field_info not in phone_fields:
+                            phone_fields.append(field_info)
                 break
 
-    # 4. Check for common form builders and embedded forms
-    # HubSpot forms
-    if soup.find(class_=re.compile(r'hs-form|hbspt-form|hubspot')):
-        # HubSpot forms often have phone fields
-        hs_inputs = soup.find_all(class_=re.compile(r'hs-input'))
+    # 4. Check for form field wrappers with phone text
+    field_wrappers = soup.find_all(['div', 'span', 'p'], class_=re.compile(r'field|input|form', re.I))
+    for wrapper in field_wrappers:
+        wrapper_text = wrapper.get_text().lower()[:100]
+        for keyword in PHONE_KEYWORDS[:4]:  # Just main keywords
+            if keyword in wrapper_text:
+                nested_input = wrapper.find('input')
+                if nested_input and nested_input.get('type', '').lower() not in ['hidden', 'submit', 'button']:
+                    field_info = {
+                        'type': 'input[wrapper text]',
+                        'name': nested_input.get('name', ''),
+                        'id': nested_input.get('id', ''),
+                        'placeholder': nested_input.get('placeholder', ''),
+                        'detection': f'wrapper: {keyword}'
+                    }
+                    if field_info not in phone_fields:
+                        phone_fields.append(field_info)
+                break
+
+    # 5. Check for common form builders
+    # HubSpot
+    if soup.find(class_=re.compile(r'hs-form|hbspt-form|hubspot', re.I)) or 'hubspot' in html_content.lower():
+        hs_inputs = soup.find_all(class_=re.compile(r'hs-input', re.I))
         for inp in hs_inputs:
             name = (inp.get('name', '') or '').lower()
-            if 'phone' in name or 'mobile' in name:
+            if any(k in name for k in ['phone', 'mobile', 'tel']):
                 phone_fields.append({
                     'type': 'hubspot form',
                     'name': inp.get('name', ''),
                     'id': inp.get('id', ''),
                     'placeholder': '',
-                    'detection': 'HubSpot form'
+                    'detection': 'HubSpot form field'
                 })
+        # HubSpot forms often have phone even if not visible in HTML
+        if not phone_fields and 'hs-form' in html_content.lower():
+            phone_fields.append({
+                'type': 'hubspot form (likely)',
+                'name': '',
+                'id': '',
+                'placeholder': '',
+                'detection': 'HubSpot form detected (commonly includes phone)'
+            })
 
-    # Typeform embeds
-    if soup.find(attrs={'data-tf-widget': True}) or 'typeform' in html_content.lower():
+    # Marketo
+    if 'mktoForm' in html_content or 'marketo' in html_content.lower():
+        phone_fields.append({
+            'type': 'marketo form',
+            'name': '',
+            'id': '',
+            'placeholder': '',
+            'detection': 'Marketo form detected (commonly includes phone)'
+        })
+
+    # Pardot
+    if 'pardot' in html_content.lower() or 'pi.pardot' in html_content:
+        phone_fields.append({
+            'type': 'pardot form',
+            'name': '',
+            'id': '',
+            'placeholder': '',
+            'detection': 'Pardot form detected (commonly includes phone)'
+        })
+
+    # Typeform
+    if soup.find(attrs={'data-tf-widget': True}) or 'typeform.com' in html_content.lower():
         phone_fields.append({
             'type': 'typeform embed',
             'name': '',
@@ -257,8 +293,8 @@ def check_html_for_phone_fields(html_content):
             'detection': 'Typeform detected (likely has phone field)'
         })
 
-    # Calendly embeds (often request phone)
-    if 'calendly' in html_content.lower():
+    # Calendly
+    if 'calendly.com' in html_content.lower():
         phone_fields.append({
             'type': 'calendly embed',
             'name': '',
@@ -267,148 +303,102 @@ def check_html_for_phone_fields(html_content):
             'detection': 'Calendly detected (may request phone)'
         })
 
-    # 5. Check for phone number patterns in form-related JavaScript
-    phone_patterns = [
-        r'phone[_\-]?number',
-        r'phoneNumber',
-        r'phone[_\-]?field',
-        r'mobile[_\-]?number',
-        r'mobileNumber',
-        r'tel[_\-]?number',
-        r'"phone"',
-        r"'phone'",
-        r'name=["\']phone["\']',
-        r'type=["\']tel["\']',
+    # JotForm
+    if 'jotform' in html_content.lower():
+        phone_fields.append({
+            'type': 'jotform embed',
+            'name': '',
+            'id': '',
+            'placeholder': '',
+            'detection': 'JotForm detected (commonly includes phone)'
+        })
+
+    # Gravity Forms (WordPress)
+    if 'gform' in html_content.lower() or 'gravity-form' in html_content.lower():
+        gf_phone = soup.find('input', {'type': 'tel'}) or soup.find(class_=re.compile(r'phone', re.I))
+        if gf_phone or 'gfield_contains_required' in html_content:
+            phone_fields.append({
+                'type': 'gravity form',
+                'name': '',
+                'id': '',
+                'placeholder': '',
+                'detection': 'Gravity Forms detected'
+            })
+
+    # WPForms
+    if 'wpforms' in html_content.lower():
+        phone_fields.append({
+            'type': 'wpforms',
+            'name': '',
+            'id': '',
+            'placeholder': '',
+            'detection': 'WPForms detected (commonly includes phone)'
+        })
+
+    # 6. Check for phone patterns in JavaScript/React code
+    phone_code_patterns = [
+        r'["\']phone["\']:\s*["\']',
+        r'["\']phoneNumber["\']',
+        r'["\']phone_number["\']',
+        r'["\']mobileNumber["\']',
+        r'["\']mobile_number["\']',
+        r'name:\s*["\']phone["\']',
+        r'id:\s*["\']phone["\']',
+        r'field["\']:\s*["\']phone',
+        r'type:\s*["\']tel["\']',
+        r'"tel":\s*true',
+        r'inputMode:\s*["\']tel["\']',
+        r'phone.*required',
+        r'required.*phone',
     ]
 
-    for pattern in phone_patterns:
+    for pattern in phone_code_patterns:
         if re.search(pattern, html_content, re.IGNORECASE):
-            # Don't add duplicate if we already found fields
-            if not phone_fields:
+            if not phone_fields:  # Only add if we haven't found anything else
                 phone_fields.append({
-                    'type': 'javascript/code reference',
+                    'type': 'code pattern',
                     'name': '',
                     'id': '',
                     'placeholder': '',
-                    'detection': f'Code pattern: {pattern}'
+                    'detection': f'JavaScript/React pattern detected'
                 })
             break
 
-    return phone_fields, soup
+    # 7. Check for phone validation patterns
+    phone_validation_patterns = [
+        r'phone.*validation',
+        r'validate.*phone',
+        r'phone.*regex',
+        r'formatPhoneNumber',
+        r'parsePhoneNumber',
+        r'intl-tel-input',
+        r'phone-input',
+        r'PhoneInput',
+        r'react-phone',
+    ]
 
-def check_website_with_playwright(url, pages_to_check):
-    """Use Playwright to check website with JavaScript rendering."""
-    phone_fields = []
-    description = ''
-    pages_checked = []
+    for pattern in phone_validation_patterns:
+        if re.search(pattern, html_content, re.IGNORECASE):
+            if not any(f.get('detection', '').startswith('validation') for f in phone_fields):
+                phone_fields.append({
+                    'type': 'phone validation library',
+                    'name': '',
+                    'id': '',
+                    'placeholder': '',
+                    'detection': 'Phone validation/formatting library detected'
+                })
+            break
 
-    try:
-        with sync_playwright() as p:
-            browser = p.chromium.launch(headless=True)
-            context = browser.new_context(
-                user_agent='Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                viewport={'width': 1280, 'height': 720}
-            )
-            page = context.new_page()
-
-            for page_path in pages_to_check[:8]:  # Check up to 8 pages
-                try:
-                    full_url = urljoin(url, page_path)
-                    page.goto(full_url, wait_until='networkidle', timeout=TIMEOUT)
-                    pages_checked.append(page_path)
-
-                    # Wait for dynamic content
-                    page.wait_for_timeout(2000)
-
-                    # Get page content after JS rendering
-                    content = page.content()
-
-                    # Check for phone fields
-                    fields, soup = check_html_for_phone_fields(content)
-
-                    # Get description from homepage
-                    if page_path == '/' and not description:
-                        description = extract_meta_description(soup)
-
-                    if fields:
-                        phone_fields.extend(fields)
-
-                    # Try clicking CTA buttons to reveal forms
-                    if not phone_fields:
-                        for pattern in BUTTON_PATTERNS[:5]:  # Try first 5 patterns
-                            try:
-                                # Look for buttons/links with this text
-                                button = page.locator(f'button:has-text("{pattern}"), a:has-text("{pattern}"), [role="button"]:has-text("{pattern}")').first
-                                if button.is_visible(timeout=1000):
-                                    button.click(timeout=3000)
-                                    page.wait_for_timeout(2000)
-
-                                    # Check again after click
-                                    content = page.content()
-                                    fields, _ = check_html_for_phone_fields(content)
-                                    if fields:
-                                        for f in fields:
-                                            f['detection'] += f' (after clicking "{pattern}")'
-                                        phone_fields.extend(fields)
-                                        break
-                            except:
-                                continue
-
-                    # If we found phone fields, we can stop
-                    if phone_fields:
-                        break
-
-                except PlaywrightTimeout:
-                    continue
-                except Exception as e:
-                    continue
-
-            browser.close()
-
-    except Exception as e:
-        return None, '', str(e)
-
-    # Deduplicate phone fields
+    # Deduplicate
     unique_fields = []
     seen = set()
     for field in phone_fields:
-        key = (field.get('name', ''), field.get('id', ''), field.get('type', ''))
+        key = (field.get('name', ''), field.get('id', ''), field.get('type', ''), field.get('detection', ''))
         if key not in seen:
             seen.add(key)
             unique_fields.append(field)
 
-    return unique_fields, description, None
-
-def check_website_with_requests(url, pages_to_check):
-    """Fallback: Use requests to check website (no JS rendering)."""
-    phone_fields = []
-    description = ''
-
-    headers = {
-        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-        'Accept-Language': 'en-US,en;q=0.5',
-    }
-
-    for page_path in pages_to_check[:6]:
-        try:
-            full_url = urljoin(url, page_path)
-            response = requests.get(full_url, headers=headers, timeout=REQUEST_TIMEOUT, allow_redirects=True)
-            response.raise_for_status()
-
-            fields, soup = check_html_for_phone_fields(response.text)
-
-            if page_path == '/' and not description:
-                description = extract_meta_description(soup)
-
-            if fields:
-                phone_fields.extend(fields)
-                break
-
-        except:
-            continue
-
-    return phone_fields, description, None
+    return unique_fields, soup
 
 def check_website(company_data):
     """Check a single website for phone fields."""
@@ -423,7 +413,7 @@ def check_website(company_data):
         'error': None,
         'scraped_description': '',
         'sellence_reasons': [],
-        'detection_method': ''
+        'pages_checked': 0
     }
 
     url = normalize_url(website)
@@ -432,34 +422,68 @@ def check_website(company_data):
         result['error'] = 'Invalid URL'
         return result
 
-    try:
-        # Try Playwright first (better JS support)
-        if PLAYWRIGHT_AVAILABLE:
-            phone_fields, description, error = check_website_with_playwright(url, PAGES_TO_CHECK)
-            result['detection_method'] = 'playwright'
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.5',
+        'Accept-Encoding': 'gzip, deflate, br',
+        'Connection': 'keep-alive',
+    }
 
-            if error:
-                # Fall back to requests
-                phone_fields, description, _ = check_website_with_requests(url, PAGES_TO_CHECK)
-                result['detection_method'] = 'requests (fallback)'
-        else:
-            phone_fields, description, _ = check_website_with_requests(url, PAGES_TO_CHECK)
-            result['detection_method'] = 'requests'
+    phone_fields = []
+    description = ''
+    pages_checked = 0
 
-        result['has_phone_field'] = len(phone_fields) > 0 if phone_fields else False
-        result['phone_field_details'] = phone_fields or []
-        result['scraped_description'] = description
-        result['status'] = 'success'
+    for page_path in PAGES_TO_CHECK[:12]:  # Check up to 12 pages
+        try:
+            full_url = urljoin(url, page_path)
+            response = req.get(full_url, headers=headers, timeout=REQUEST_TIMEOUT, allow_redirects=True)
 
-        # Generate Sellence reasons
-        industry = result.get('industry', result.get('Industry', ''))
-        category = result.get('category', result.get('Category', ''))
-        desc = result.get('description', description)
-        result['sellence_reasons'] = get_sellence_reasons(industry, category, desc)
+            if response.status_code != 200:
+                continue
 
-    except Exception as e:
-        result['status'] = 'error'
-        result['error'] = str(e)[:100]
+            pages_checked += 1
+            fields, soup = check_html_for_phone_fields(response.text)
+
+            if page_path == '/' and not description:
+                description = extract_meta_description(soup)
+
+            if fields:
+                phone_fields.extend(fields)
+                # If we found strong evidence (type=tel or multiple indicators), stop
+                strong_evidence = any(f['type'] == 'input[type=tel]' for f in fields)
+                if strong_evidence or len(phone_fields) >= 2:
+                    break
+
+        except req.exceptions.Timeout:
+            continue
+        except req.exceptions.RequestException:
+            continue
+        except Exception:
+            continue
+
+    # Deduplicate final results
+    unique_fields = []
+    seen = set()
+    for field in phone_fields:
+        key = (field.get('name', ''), field.get('id', ''), field.get('type', ''))
+        if key not in seen:
+            seen.add(key)
+            unique_fields.append(field)
+
+    result['has_phone_field'] = len(unique_fields) > 0
+    result['phone_field_details'] = unique_fields
+    result['scraped_description'] = description
+    result['pages_checked'] = pages_checked
+    result['status'] = 'success' if pages_checked > 0 else 'error'
+    if pages_checked == 0:
+        result['error'] = 'Could not access website'
+
+    # Generate Sellence reasons
+    industry = result.get('industry', result.get('Industry', ''))
+    category = result.get('category', result.get('Category', ''))
+    desc = result.get('description', description)
+    result['sellence_reasons'] = get_sellence_reasons(industry, category, desc)
 
     return result
 
@@ -521,7 +545,6 @@ def process_csv(file_content):
     if not companies:
         return {'error': 'No valid companies found in CSV'}
 
-    # Check websites (reduced parallelism for Playwright)
     results = []
     with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
         futures = {executor.submit(check_website, company): company for company in companies}
@@ -585,7 +608,7 @@ def download_results():
     if filtered:
         priority_fields = ['company_name', 'website', 'industry', 'employees', 'revenue',
                           'description', 'scraped_description', 'location', 'has_phone_field',
-                          'sellence_reasons', 'status', 'detection_method']
+                          'sellence_reasons', 'status', 'pages_checked']
 
         all_fields = set()
         for r in filtered:
@@ -618,7 +641,6 @@ if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     print("\n" + "="*50)
     print("  SELLENCE LEAD QUALIFIER")
-    print(f"  Playwright available: {PLAYWRIGHT_AVAILABLE}")
     print(f"  Open http://localhost:{port} in your browser")
     print("="*50 + "\n")
     app.run(host='0.0.0.0', port=port, debug=False)

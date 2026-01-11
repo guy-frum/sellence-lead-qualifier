@@ -3,4 +3,3 @@ beautifulsoup4>=4.11.0
 lxml>=4.9.0
 flask>=2.3.0
 gunicorn>=21.0.0
-playwright>=1.40.0
