@@ -19,7 +19,7 @@
         }
 
         .container {
-            max-width: 1200px;
+            max-width: 1400px;
             margin: 0 auto;
             padding: 40px 20px;
         }
@@ -224,40 +224,68 @@
             box-shadow: 0 4px 20px rgba(74, 222, 128, 0.3);
         }
 
-        /* Results Table */
-        .results-table {
+        /* Results Cards */
+        .results-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .result-card {
             background: rgba(255, 255, 255, 0.05);
             border-radius: 12px;
-            overflow: hidden;
+            padding: 20px;
+            transition: all 0.3s ease;
         }
 
-        table {
-            width: 100%;
-            border-collapse: collapse;
+        .result-card:hover {
+            background: rgba(255, 255, 255, 0.08);
         }
 
-        th, td {
-            padding: 15px;
-            text-align: left;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        .result-card.qualified {
+            border-left: 4px solid #4ade80;
         }
 
-        th {
-            background: rgba(255, 255, 255, 0.05);
+        .result-card.not-qualified {
+            border-left: 4px solid #f87171;
+        }
+
+        .result-card.error {
+            border-left: 4px solid #fbbf24;
+        }
+
+        .result-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .company-info {
+            flex: 1;
+        }
+
+        .company-name {
+            font-size: 1.2rem;
             font-weight: 600;
-            color: #888;
-            font-size: 0.85rem;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
+            margin-bottom: 5px;
         }
 
-        tr:hover {
-            background: rgba(255, 255, 255, 0.02);
+        .company-website {
+            color: #667eea;
+            text-decoration: none;
+            font-size: 0.9rem;
+        }
+
+        .company-website:hover {
+            text-decoration: underline;
         }
 
         .status-badge {
             display: inline-block;
-            padding: 4px 12px;
+            padding: 6px 14px;
             border-radius: 20px;
             font-size: 0.85rem;
             font-weight: 500;
@@ -278,13 +306,78 @@
             color: #fbbf24;
         }
 
-        .website-link {
-            color: #667eea;
-            text-decoration: none;
+        .result-details {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 15px;
         }
 
-        .website-link:hover {
-            text-decoration: underline;
+        .detail-item {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .detail-label {
+            font-size: 0.75rem;
+            color: #666;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .detail-value {
+            font-size: 0.9rem;
+            color: #ccc;
+        }
+
+        .description {
+            background: rgba(0, 0, 0, 0.2);
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            color: #aaa;
+            margin-bottom: 15px;
+            line-height: 1.5;
+        }
+
+        .sellence-reasons {
+            background: rgba(102, 126, 234, 0.1);
+            border: 1px solid rgba(102, 126, 234, 0.3);
+            padding: 15px;
+            border-radius: 8px;
+        }
+
+        .sellence-reasons-title {
+            font-size: 0.85rem;
+            color: #667eea;
+            margin-bottom: 10px;
+            font-weight: 600;
+        }
+
+        .sellence-reasons ul {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .sellence-reasons li {
+            position: relative;
+            padding-left: 20px;
+            margin-bottom: 8px;
+            font-size: 0.9rem;
+            color: #bbb;
+        }
+
+        .sellence-reasons li:before {
+            content: ">";
+            position: absolute;
+            left: 0;
+            color: #667eea;
+        }
+
+        .sellence-reasons li:last-child {
+            margin-bottom: 0;
         }
 
         /* Reset Button */
@@ -313,6 +406,22 @@
             text-align: center;
             padding: 40px;
             color: #666;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .results-header {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .filter-tabs {
+                overflow-x: auto;
+            }
+
+            .result-details {
+                grid-template-columns: 1fr 1fr;
+            }
         }
     </style>
 </head>
@@ -371,19 +480,7 @@
                 <button class="download-btn" id="downloadBtn">Download Qualified CSV</button>
             </div>
 
-            <div class="results-table">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Company</th>
-                            <th>Website</th>
-                            <th>Category</th>
-                            <th>Status</th>
-                        </tr>
-                    </thead>
-                    <tbody id="resultsBody">
-                    </tbody>
-                </table>
+            <div class="results-grid" id="resultsGrid">
             </div>
         </div>
 
@@ -401,7 +498,7 @@
         const progressText = document.getElementById('progressText');
         const stats = document.getElementById('stats');
         const resultsContainer = document.getElementById('resultsContainer');
-        const resultsBody = document.getElementById('resultsBody');
+        const resultsGrid = document.getElementById('resultsGrid');
         const resetBtn = document.getElementById('resetBtn');
         const downloadBtn = document.getElementById('downloadBtn');
         const filterTabs = document.querySelectorAll('.filter-tab');
@@ -465,7 +562,7 @@
 
             try {
                 progressFill.style.width = '50%';
-                progressText.textContent = 'Checking websites for phone fields...';
+                progressText.textContent = 'Checking websites for phone fields (this may take a minute)...';
 
                 const response = await fetch('/check', {
                     method: 'POST',
@@ -521,15 +618,13 @@
             }
 
             if (filtered.length === 0) {
-                resultsBody.innerHTML = `
-                    <tr>
-                        <td colspan="4" class="empty-state">No companies in this category</td>
-                    </tr>
+                resultsGrid.innerHTML = `
+                    <div class="empty-state">No companies in this category</div>
                 `;
                 return;
             }
 
-            resultsBody.innerHTML = filtered.map(r => {
+            resultsGrid.innerHTML = filtered.map(r => {
                 let statusClass = 'not-qualified';
                 let statusText = 'No Phone Field';
 
@@ -541,17 +636,67 @@
                     statusText = 'Has Phone Field';
                 }
 
+                const description = r.description || r.scraped_description || '';
+                const sellenceReasons = r.sellence_reasons || [];
+
                 return `
-                    <tr>
-                        <td>${escapeHtml(r.company_name)}</td>
-                        <td>
-                            <a href="https://${escapeHtml(r.website)}" target="_blank" class="website-link">
-                                ${escapeHtml(r.website)}
-                            </a>
-                        </td>
-                        <td>${escapeHtml(r.category || '-')}</td>
-                        <td><span class="status-badge ${statusClass}">${statusText}</span></td>
-                    </tr>
+                    <div class="result-card ${statusClass}">
+                        <div class="result-header">
+                            <div class="company-info">
+                                <div class="company-name">${escapeHtml(r.company_name)}</div>
+                                <a href="https://${escapeHtml(r.website)}" target="_blank" class="company-website">
+                                    ${escapeHtml(r.website)}
+                                </a>
+                            </div>
+                            <span class="status-badge ${statusClass}">${statusText}</span>
+                        </div>
+
+                        <div class="result-details">
+                            ${r.industry ? `
+                                <div class="detail-item">
+                                    <span class="detail-label">Industry</span>
+                                    <span class="detail-value">${escapeHtml(r.industry)}</span>
+                                </div>
+                            ` : ''}
+                            ${r.employees ? `
+                                <div class="detail-item">
+                                    <span class="detail-label">Employees</span>
+                                    <span class="detail-value">${escapeHtml(r.employees)}</span>
+                                </div>
+                            ` : ''}
+                            ${r.revenue ? `
+                                <div class="detail-item">
+                                    <span class="detail-label">Revenue</span>
+                                    <span class="detail-value">${escapeHtml(r.revenue)}</span>
+                                </div>
+                            ` : ''}
+                            ${r.location ? `
+                                <div class="detail-item">
+                                    <span class="detail-label">Location</span>
+                                    <span class="detail-value">${escapeHtml(r.location)}</span>
+                                </div>
+                            ` : ''}
+                            ${r.founded ? `
+                                <div class="detail-item">
+                                    <span class="detail-label">Founded</span>
+                                    <span class="detail-value">${escapeHtml(r.founded)}</span>
+                                </div>
+                            ` : ''}
+                        </div>
+
+                        ${description ? `
+                            <div class="description">${escapeHtml(description)}</div>
+                        ` : ''}
+
+                        ${sellenceReasons.length > 0 && r.has_phone_field ? `
+                            <div class="sellence-reasons">
+                                <div class="sellence-reasons-title">Why Sellence Can Help</div>
+                                <ul>
+                                    ${sellenceReasons.map(reason => `<li>${escapeHtml(reason)}</li>`).join('')}
+                                </ul>
+                            </div>
+                        ` : ''}
+                    </div>
                 `;
             }).join('');
         }
@@ -563,15 +708,30 @@
                 data = allResults.filter(r => r.has_phone_field);
             }
 
+            // Get all fields
+            const priorityFields = ['company_name', 'website', 'industry', 'employees', 'revenue',
+                                   'description', 'scraped_description', 'location', 'has_phone_field',
+                                   'sellence_reasons', 'status'];
+
+            const allFields = new Set();
+            data.forEach(r => Object.keys(r).forEach(k => allFields.add(k)));
+
+            const fields = priorityFields.filter(f => allFields.has(f));
+            [...allFields].filter(f => !priorityFields.includes(f) && f !== 'phone_field_details' && f !== 'error')
+                         .sort()
+                         .forEach(f => fields.push(f));
+
             const csv = [
-                ['Company Name', 'Website', 'Category', 'Has Phone Field', 'Status'].join(','),
-                ...data.map(r => [
-                    `"${r.company_name}"`,
-                    `"${r.website}"`,
-                    `"${r.category || ''}"`,
-                    r.has_phone_field,
-                    r.status
-                ].join(','))
+                fields.join(','),
+                ...data.map(r => fields.map(f => {
+                    let val = r[f];
+                    if (f === 'sellence_reasons' && Array.isArray(val)) {
+                        val = val.join(' | ');
+                    }
+                    if (val === undefined || val === null) val = '';
+                    val = String(val).replace(/"/g, '""');
+                    return `"${val}"`;
+                }).join(','))
             ].join('\n');
 
             const blob = new Blob([csv], { type: 'text/csv' });
@@ -585,7 +745,7 @@
 
         function escapeHtml(str) {
             if (!str) return '';
-            return str.replace(/&/g, '&amp;')
+            return String(str).replace(/&/g, '&amp;')
                       .replace(/</g, '&lt;')
                       .replace(/>/g, '&gt;')
                       .replace(/"/g, '&quot;');
