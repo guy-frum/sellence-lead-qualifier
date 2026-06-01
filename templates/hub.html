@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ hub.company_name }} — Sellence Account Hub</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            min-height: 100vh;
+            color: #fff;
+        }
+
+        .container { max-width: 1100px; margin: 0 auto; padding: 40px 20px; }
+
+        .back-link {
+            display: inline-block;
+            color: #667eea;
+            text-decoration: none;
+            font-size: 0.9rem;
+            margin-bottom: 24px;
+        }
+        .back-link:hover { text-decoration: underline; }
+
+        /* Account header */
+        .account-header {
+            display: flex;
+            align-items: center;
+            gap: 24px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 16px;
+            padding: 28px 32px;
+            margin-bottom: 24px;
+            flex-wrap: wrap;
+        }
+        .account-logo {
+            width: 72px;
+            height: 72px;
+            border-radius: 14px;
+            background: #fff;
+            object-fit: contain;
+            padding: 8px;
+            flex-shrink: 0;
+        }
+        .account-id { flex: 1; min-width: 240px; }
+        .account-id h1 {
+            font-size: 2.2rem;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .account-tagline { color: #aaa; font-size: 1.05rem; margin-top: 4px; }
+        .account-links { margin-top: 10px; display: flex; gap: 16px; flex-wrap: wrap; }
+        .account-links a { color: #667eea; text-decoration: none; font-size: 0.9rem; }
+        .account-links a:hover { text-decoration: underline; }
+
+        .fit-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 18px;
+            border-radius: 12px;
+            background: rgba(74, 222, 128, 0.15);
+            border: 1px solid rgba(74, 222, 128, 0.4);
+            color: #4ade80;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+        .fit-badge .dot { width: 8px; height: 8px; border-radius: 50%; background: #4ade80; }
+
+        /* Section */
+        .section { margin-bottom: 24px; }
+        .section-title {
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #667eea;
+            margin-bottom: 14px;
+            font-weight: 600;
+        }
+
+        .card {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            padding: 24px;
+        }
+
+        /* Firmographics grid */
+        .facts {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 18px;
+        }
+        .fact-label {
+            font-size: 0.72rem;
+            color: #666;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 4px;
+        }
+        .fact-value { font-size: 0.98rem; color: #eee; }
+
+        .description {
+            color: #bbb;
+            line-height: 1.65;
+            font-size: 0.95rem;
+            margin-top: 18px;
+            padding-top: 18px;
+            border-top: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        /* Lists with > bullets */
+        .lead-list { list-style: none; }
+        .lead-list li {
+            position: relative;
+            padding-left: 22px;
+            margin-bottom: 12px;
+            color: #ccc;
+            line-height: 1.5;
+            font-size: 0.95rem;
+        }
+        .lead-list li:last-child { margin-bottom: 0; }
+        .lead-list li:before { content: ">"; position: absolute; left: 0; color: #667eea; }
+
+        .value-props {
+            background: rgba(102, 126, 234, 0.1);
+            border: 1px solid rgba(102, 126, 234, 0.3);
+        }
+
+        /* Qualification panel */
+        .qualify-panel {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            flex-wrap: wrap;
+        }
+        .qualify-status { font-size: 0.95rem; color: #aaa; }
+        .qualify-status strong { color: #fff; }
+        .check-btn {
+            padding: 12px 22px;
+            border-radius: 8px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            color: #fff;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        .check-btn:hover { transform: translateY(-2px); box-shadow: 0 4px 20px rgba(102, 126, 234, 0.3); }
+        .check-btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none; box-shadow: none; }
+        .qualify-result { margin-top: 16px; font-size: 0.9rem; display: none; }
+        .qualify-result.active { display: block; }
+        .qualify-result .pill {
+            display: inline-block;
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-weight: 600;
+            font-size: 0.85rem;
+        }
+        .pill.yes { background: rgba(74, 222, 128, 0.2); color: #4ade80; }
+        .pill.no { background: rgba(248, 113, 113, 0.2); color: #f87171; }
+        .pill.err { background: rgba(251, 191, 36, 0.2); color: #fbbf24; }
+        .qualify-detail { color: #888; margin-top: 8px; line-height: 1.5; }
+
+        /* Contacts */
+        .contacts-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: 16px;
+        }
+        .contact-card {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            padding: 18px 20px;
+            border-left: 4px solid #667eea;
+        }
+        .contact-card.sponsor { border-left-color: #764ba2; }
+        .contact-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            gap: 10px;
+        }
+        .contact-name { font-weight: 600; font-size: 1.05rem; }
+        .role-tag {
+            font-size: 0.65rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            padding: 3px 8px;
+            border-radius: 6px;
+            background: rgba(102, 126, 234, 0.2);
+            color: #8b9cf0;
+            white-space: nowrap;
+        }
+        .role-tag.sponsor { background: rgba(118, 75, 162, 0.25); color: #b18bd0; }
+        .contact-title { color: #999; font-size: 0.85rem; margin: 4px 0 10px; }
+        .contact-angle { color: #bbb; font-size: 0.88rem; line-height: 1.5; }
+        .contact-link {
+            display: inline-block;
+            margin-top: 12px;
+            color: #667eea;
+            text-decoration: none;
+            font-size: 0.85rem;
+        }
+        .contact-link:hover { text-decoration: underline; }
+
+        footer { text-align: center; color: #555; font-size: 0.8rem; margin-top: 40px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="/hubs" class="back-link">&larr; All account hubs</a>
+
+        <div class="account-header">
+            <img class="account-logo" src="{{ hub.logo_url }}" alt="{{ hub.company_name }} logo"
+                 onerror="this.style.display='none'">
+            <div class="account-id">
+                <h1>{{ hub.company_name }}</h1>
+                <div class="account-tagline">{{ hub.tagline }}</div>
+                <div class="account-links">
+                    <a href="https://{{ hub.website }}" target="_blank">{{ hub.website }}</a>
+                    {% if hub.linkedin %}<a href="{{ hub.linkedin }}" target="_blank">LinkedIn</a>{% endif %}
+                </div>
+            </div>
+            <div class="fit-badge"><span class="dot"></span>{{ hub.fit_score }} Sellence fit</div>
+        </div>
+
+        <div class="section">
+            <div class="section-title">Company Overview</div>
+            <div class="card">
+                <div class="facts">
+                    <div><div class="fact-label">Industry</div><div class="fact-value">{{ hub.industry }}</div></div>
+                    <div><div class="fact-label">Employees</div><div class="fact-value">{{ hub.employees }}</div></div>
+                    <div><div class="fact-label">Revenue</div><div class="fact-value">{{ hub.revenue }}</div></div>
+                    <div><div class="fact-label">Headquarters</div><div class="fact-value">{{ hub.location }}</div></div>
+                    <div><div class="fact-label">Founded</div><div class="fact-value">{{ hub.founded }}</div></div>
+                    {% if hub.parent %}<div><div class="fact-label">Parent</div><div class="fact-value">{{ hub.parent }}</div></div>{% endif %}
+                </div>
+                <p class="description">{{ hub.description }}</p>
+            </div>
+        </div>
+
+        <div class="section">
+            <div class="section-title">Live Qualification Signal</div>
+            <div class="card">
+                <div class="qualify-panel">
+                    <div class="qualify-status">
+                        Check whether <strong>{{ hub.website }}</strong> is currently collecting phone numbers on its forms.
+                    </div>
+                    <button class="check-btn" id="checkBtn" onclick="runCheck()">Run live check</button>
+                </div>
+                <div class="qualify-result" id="qualifyResult"></div>
+            </div>
+        </div>
+
+        <div class="section">
+            <div class="section-title">Why TAL is a fit for Sellence</div>
+            <div class="card">
+                <ul class="lead-list">
+                    {% for s in hub.signals %}<li>{{ s }}</li>{% endfor %}
+                </ul>
+            </div>
+        </div>
+
+        <div class="section">
+            <div class="section-title">Sellence value proposition</div>
+            <div class="card value-props">
+                <ul class="lead-list">
+                    {% for v in hub.value_props %}<li>{{ v }}</li>{% endfor %}
+                </ul>
+            </div>
+        </div>
+
+        <div class="section">
+            <div class="section-title">Key contacts ({{ hub.contacts|length }})</div>
+            <div class="contacts-grid">
+                {% for c in hub.contacts %}
+                <div class="contact-card {{ c.role }}">
+                    <div class="contact-top">
+                        <span class="contact-name">{{ c.name }}</span>
+                        <span class="role-tag {{ c.role }}">{{ 'Exec sponsor' if c.role == 'sponsor' else 'Champion' }}</span>
+                    </div>
+                    <div class="contact-title">{{ c.title }}</div>
+                    <div class="contact-angle">{{ c.angle }}</div>
+                    {% if c.linkedin %}<a class="contact-link" href="{{ c.linkedin }}" target="_blank">View on LinkedIn &rarr;</a>{% endif %}
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <footer>Sellence Account Hub &middot; data via Sellence enrichment</footer>
+    </div>
+
+    <script>
+        async function runCheck() {
+            const btn = document.getElementById('checkBtn');
+            const out = document.getElementById('qualifyResult');
+            btn.disabled = true;
+            btn.textContent = 'Checking…';
+            out.classList.add('active');
+            out.innerHTML = '<span class="qualify-detail">Scanning quote, contact and get-started pages…</span>';
+
+            try {
+                const res = await fetch('/hub/{{ hub.slug }}/qualify', { method: 'POST' });
+                const data = await res.json();
+
+                if (data.status === 'error') {
+                    out.innerHTML = '<span class="pill err">Could not reach site</span>' +
+                        '<div class="qualify-detail">' + escapeHtml(data.error || 'Unknown error') + '</div>';
+                } else if (data.has_phone_field) {
+                    const detections = (data.phone_field_details || [])
+                        .map(d => d.detection).filter(Boolean).slice(0, 4);
+                    out.innerHTML = '<span class="pill yes">Qualified — collects phone numbers</span>' +
+                        '<div class="qualify-detail">Checked ' + data.pages_checked + ' page(s). ' +
+                        (detections.length ? 'Signals: ' + escapeHtml(detections.join('; ')) : '') + '</div>';
+                } else {
+                    out.innerHTML = '<span class="pill no">No phone field detected</span>' +
+                        '<div class="qualify-detail">Checked ' + data.pages_checked + ' page(s) and found no phone capture.</div>';
+                }
+            } catch (e) {
+                out.innerHTML = '<span class="pill err">Check failed</span>' +
+                    '<div class="qualify-detail">' + escapeHtml(e.message) + '</div>';
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Run live check';
+            }
+        }
+
+        function escapeHtml(str) {
+            if (!str) return '';
+            return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Account Hubs — Sellence</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            min-height: 100vh;
+            color: #fff;
+        }
+        .container { max-width: 1000px; margin: 0 auto; padding: 40px 20px; }
+        header { text-align: center; margin-bottom: 40px; }
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .subtitle { color: #888; font-size: 1.05rem; }
+        .back-link { display: inline-block; color: #667eea; text-decoration: none; font-size: 0.9rem; margin-bottom: 24px; }
+        .back-link:hover { text-decoration: underline; }
+        .hub-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px; }
+        .hub-card {
+            display: block;
+            text-decoration: none;
+            color: inherit;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 14px;
+            padding: 24px;
+            transition: all 0.3s ease;
+            border-left: 4px solid #667eea;
+        }
+        .hub-card:hover { background: rgba(255, 255, 255, 0.09); transform: translateY(-2px); }
+        .hub-top { display: flex; align-items: center; gap: 14px; margin-bottom: 12px; }
+        .hub-logo { width: 48px; height: 48px; border-radius: 10px; background: #fff; object-fit: contain; padding: 5px; }
+        .hub-name { font-size: 1.25rem; font-weight: 600; }
+        .hub-tagline { color: #999; font-size: 0.88rem; line-height: 1.4; margin-bottom: 14px; }
+        .hub-meta { display: flex; gap: 14px; flex-wrap: wrap; font-size: 0.78rem; color: #888; }
+        .hub-meta .fit { color: #4ade80; font-weight: 600; }
+        .empty { text-align: center; color: #666; padding: 40px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="/" class="back-link">&larr; Lead Qualifier</a>
+        <header>
+            <h1>Account Hubs</h1>
+            <p class="subtitle">Single-page briefings for high-value target accounts</p>
+        </header>
+
+        {% if hubs %}
+        <div class="hub-grid">
+            {% for hub in hubs %}
+            <a class="hub-card" href="/hub/{{ hub.slug }}">
+                <div class="hub-top">
+                    <img class="hub-logo" src="{{ hub.logo_url }}" alt="" onerror="this.style.display='none'">
+                    <div class="hub-name">{{ hub.company_name }}</div>
+                </div>
+                <div class="hub-tagline">{{ hub.tagline }}</div>
+                <div class="hub-meta">
+                    <span>{{ hub.industry }}</span>
+                    <span>{{ hub.location }}</span>
+                    <span class="fit">{{ hub.fit_score }} fit</span>
+                </div>
+            </a>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="empty">No account hubs yet.</div>
+        {% endif %}
+    </div>
+</body>
+</html>

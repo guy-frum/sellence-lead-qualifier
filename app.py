@@ -5,7 +5,7 @@ Upload a CSV of companies and check which ones collect phone numbers.
 Enhanced detection patterns for better accuracy.
 """
 
-from flask import Flask, render_template, request, jsonify, send_file
+from flask import Flask, render_template, request, jsonify, send_file, abort
 import csv
 import io
 import os
@@ -16,6 +16,8 @@ from urllib.parse import urlparse, urljoin
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import tempfile
 import json
+
+from hubs import get_hub, list_hubs
 
 app = Flask(__name__)
 
@@ -613,6 +615,36 @@ def process_csv(file_content):
 @app.route('/')
 def index():
     return render_template('index.html')
+
+@app.route('/hubs')
+def hubs_index():
+    return render_template('hubs.html', hubs=list_hubs())
+
+@app.route('/hub/<slug>')
+def hub_detail(slug):
+    hub = get_hub(slug)
+    if not hub:
+        abort(404)
+    return render_template('hub.html', hub=hub)
+
+@app.route('/hub/<slug>/qualify', methods=['POST'])
+def hub_qualify(slug):
+    """Run the live phone-field check for a hub's website, reusing the core engine."""
+    hub = get_hub(slug)
+    if not hub:
+        abort(404)
+    result = check_website({
+        'company_name': hub['company_name'],
+        'website': hub['website'],
+        'industry': hub.get('industry', ''),
+    })
+    return jsonify({
+        'has_phone_field': result['has_phone_field'],
+        'phone_field_details': result['phone_field_details'],
+        'pages_checked': result['pages_checked'],
+        'status': result['status'],
+        'error': result['error'],
+    })
 
 @app.route('/check', methods=['POST'])
 def check_companies():
